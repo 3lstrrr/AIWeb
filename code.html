@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全国高校AI Web开发挑战赛 · 赛项文件 · Need.html</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --muted:#666; --line:#e2e2e2;
+    --accent:#3b6cf6; --accent-soft:#eef3ff;
+    --warn:#c2410c;
+    --serif:"Songti SC","Noto Serif SC",Georgia,serif;
+    --sans:"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    --mono:"SF Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{font-family:var(--sans);color:var(--ink);background:#fafaf8;margin:0;line-height:1.8}
+  .page{max-width:960px;margin:0 auto;padding:48px 32px 96px}
+
+  header.hero{border-bottom:3px solid var(--ink);padding-bottom:20px;margin-bottom:24px;text-align:center}
+  header.hero .kicker{font-size:12px;letter-spacing:.2em;color:var(--muted)}
+  header.hero h1{font-family:var(--serif);font-size:32px;margin:10px 0 6px;font-weight:600}
+  header.hero .sub{color:var(--muted);font-size:14px}
+
+  nav.toc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 24px;margin-bottom:36px}
+  nav.toc b{font-size:14px;letter-spacing:.1em;color:var(--accent)}
+  nav.toc ol{margin:8px 0 0;padding-left:22px;font-size:14px;columns:2;column-gap:40px}
+  nav.toc a{color:#333;text-decoration:none}
+  nav.toc a:hover{color:var(--accent);text-decoration:underline}
+
+  section{margin-bottom:46px}
+  h2.ch{font-family:var(--serif);font-size:26px;margin:0 0 18px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+  h2.ch .no{color:var(--accent);font-family:var(--mono);font-size:20px;margin-right:10px}
+  h3{font-size:18px;margin:26px 0 12px;color:var(--ink)}
+  h3 .no{color:var(--accent);font-family:var(--mono);margin-right:8px}
+  h4{font-size:15.5px;margin:20px 0 10px;color:var(--accent)}
+  p{font-size:15px;margin:10px 0;color:#222}
+  ul{padding-left:24px;margin:10px 0}
+  li{font-size:14.5px;margin:6px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0 22px;background:#fff}
+  th,td{border:1px solid var(--line);padding:10px 14px;text-align:left;vertical-align:top}
+  th{background:#f3f4f6;font-weight:600;white-space:nowrap}
+  tbody tr:nth-child(2n){background:#fcfcfc}
+  .sub-bold{font-weight:600}
+  .em{font-weight:600}
+  .note{background:#fffbe6;border:1px solid #f2e2a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:14.5px}
+  .note b{color:var(--warn)}
+
+  /* 推荐方向高亮 */
+  tr.rec{background:#fffbe6 !important}
+  tr.rec td:first-child{font-weight:700;color:var(--warn)}
+  .badge{display:inline-block;background:var(--warn);color:#fff;font-size:11px;border-radius:4px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+
+  /* 附录建议卡 */
+  .final{background:linear-gradient(135deg,#eef3ff,#f6f9ff);border:2px solid var(--accent);border-radius:12px;padding:26px 30px;margin-top:10px}
+  .final .label{font-size:12px;letter-spacing:.15em;color:var(--accent);font-weight:700}
+  .final h2{font-family:var(--serif);font-size:22px;margin:8px 0}
+  .final p,.final li{font-size:14.5px}
+  .final .quote{background:#fff;border-left:4px solid var(--accent);padding:10px 16px;border-radius:0 8px 8px 0;margin:12px 0}
+  .final table{font-size:13.5px}
+  .code{font-family:var(--mono);font-size:12.5px;background:#f5f5f5;padding:1px 6px;border-radius:3px}
+
+  footer{border-top:1px solid var(--line);padding-top:16px;margin-top:48px;font-size:12.5px;color:var(--muted);text-align:center}
+
+  @media print{
+    body{background:#fff}
+    .page{padding:16px}
+    nav.toc ol{columns:2}
+    section{break-inside:avoid-page}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div class="kicker">全国高等院校计算机教育研究会 · 主办</div>
+  <h1>全国高校 AI Web 开发挑战赛</h1>
+  <div class="sub">智启未来：AI 驱动的 Web 应用创新挑战 · 赛项文件（赛道介绍 / 命题背景 / 命题范围 / 参赛规则 / 省赛安排）</div>
+</header>
+
+<nav class="toc">
+  <b>目 录 · CONTENTS</b>
+  <ol>
+    <li><a href="#s1">赛道介绍</a></li>
+    <li><a href="#s2">命题背景</a></li>
+    <li><a href="#s3">命题范围</a></li>
+    <li><a href="#s4">参赛规则</a></li>
+    <li><a href="#s5">省赛安排</a></li>
+    <li><a href="#s6">附录：速成方向建议</a></li>
+  </ol>
+</nav>
+
+<!-- ============ 1 赛道介绍 ============ -->
+<section id="s1">
+  <h2 class="ch"><span class="no">01</span>赛道介绍</h2>
+  <p>全国高校AI Web开发挑战赛是面向全国高等院校在校学生的创新型技术竞赛，旨在推动人工智能技术与Web应用开发的深度融合，培养具备AI工程化能力的新一代开发者。</p>
+  <p>本赛项以 <span class="em">“智启未来：AI驱动的Web应用创新挑战”</span> 为核心主题，聚焦于 AI Native Web前端应用的设计与开发，要求参赛选手以现代前端框架为基础，综合运用大语言模型（LLM）、AI Agent、RAG（检索增强生成）、多模态AI等前沿技术，构建具有实际应用价值、交互体验出色的Web前端应用。</p>
+  <p>赛项强调以下核心能力的考察：</p>
+  <ul>
+    <li><span class="em">前端工程能力</span>：熟练掌握现代前端框架（React/Vue等），具备组件化开发、状态管理、性能优化等前端工程素养</li>
+    <li><span class="em">AI技术集成能力</span>：能够在前端应用中高质量集成大模型API与AI交互能力，实现智能化用户体验</li>
+    <li><span class="em">创新思维能力</span>：能够发现真实场景需求，提出创新性的AI+前端解决方案</li>
+    <li><span class="em">用户体验设计能力</span>：具备优秀的UI/UX设计意识，能将AI能力转化为流畅、直觉的前端交互体验</li>
+  </ul>
+  <p>本赛项由全国高等院校计算机教育研究会主办，各省级教育行政部门协办，面向全国所有全日制高等院校（含高职高专）在校学生开放报名。赛事采用“院校赛—省赛—国赛”三级赛制，层层选拔，确保竞赛的公平性与权威性。</p>
+</section>
+
+<!-- ============ 2 命题背景 ============ -->
+<section id="s2">
+  <h2 class="ch"><span class="no">02</span>命题背景</h2>
+
+  <h3><span class="no">2.1</span>时代背景</h3>
+  <p>2026年，人工智能技术正经历从“技术验证”到“产业落地”的关键跃迁。以GPT-5、Claude 4、Gemini Ultra等为代表的新一代大语言模型在推理能力、多模态理解、长上下文处理等方面取得了突破性进展，AI应用的边界被极大拓展。</p>
+  <ul>
+    <li><span class="em">AI Agent爆发式增长：</span>2026年被业界称为“AI Agent元年”。基于大模型的智能体（Agent）技术走向成熟，能够自主规划、调用工具、协作完成复杂任务。从单一Agent到Multi-Agent系统编排，AI Agent正在重塑软件开发和用户交互的范式。</li>
+    <li><span class="em">多模态大模型全面成熟：</span>文本、图像、语音、视频的统一理解与生成能力已成为主流大模型的标配。多模态AI不再是实验室技术，而是Web应用中触手可及的基础能力，为开发者打开了全新的产品设计空间。</li>
+    <li><span class="em">AI Native应用普及：</span>越来越多的Web应用从设计之初就以AI为核心，而非简单地为传统应用“添加AI功能”。AI Native的设计理念正在改变Web应用的产品逻辑、交互方式和用户体验。</li>
+    <li><span class="em">MCP协议标准化：</span>Model Context Protocol（MCP）作为AI模型与外部工具、数据源交互的开放协议，正在成为行业标准，极大简化了AI应用与外部系统的集成复杂度。</li>
+    <li><span class="em">端云协同推理普及：</span>随着WebGPU、ONNX Runtime Web等技术的成熟，浏览器端AI推理能力显著增强，端云协同的AI架构成为Web应用的重要技术路径。</li>
+  </ul>
+
+  <h3><span class="no">2.2</span>产业需求</h3>
+  <p>当前，各行各业对AI Web应用开发人才的需求急剧增长。企业需要的不仅是能写代码的开发者，更需要能够理解AI技术特性、设计AI原生交互、构建端到端AI应用的复合型人才。本赛项旨在通过实战竞赛的方式，加速高校学生从“学习AI”到“应用AI”的能力转化，为产业输送高质量的AI应用开发人才。</p>
+
+  <h3><span class="no">2.3</span>教育意义</h3>
+  <p>本赛项将AI前沿技术与Web开发实践紧密结合，为高校计算机相关专业的教学改革提供实践载体。通过竞赛驱动学习，引导学生关注技术前沿、锻炼工程能力、培养创新思维，实现“以赛促学、以赛促教、以赛促创”的目标。</p>
+</section>
+
+<!-- ============ 3 命题范围 ============ -->
+<section id="s3">
+  <h2 class="ch"><span class="no">03</span>命题范围</h2>
+  <p>参赛作品须为基于AI技术的Web应用，选手可从以下推荐方向中选择，也可自拟与AI Web应用相关的选题。作品应体现AI技术的深度应用，而非简单的API调用。</p>
+
+  <h3><span class="no">3.1</span>推荐选题方向</h3>
+  <table>
+    <thead><tr><th style="width:8%">序号</th><th style="width:24%">方向名称</th><th>方向说明</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>AI Agent智能助手</td><td>基于大模型构建具备自主规划、工具调用、多轮对话能力的智能体应用，如个人AI助手、企业智能客服、自动化工作流Agent等</td></tr>
+      <tr><td>3</td><td>多模态AI创意平台</td><td>整合文本、图像、语音、视频等多模态能力，构建创意内容生成与编辑平台，如AI设计工具、智能视频编辑器、多模态故事创作平台等</td></tr>
+      <tr><td>4</td><td>AI协同办公工具</td><td>利用AI技术提升办公效率的Web工具，如AI写作助手、智能会议纪要、AI项目管理工具、智能文档分析平台等</td></tr>
+      <tr><td>5</td><td>AI教育与学习平台</td><td>基于AI技术构建个性化学习体验，如AI辅导教师、智能出题系统、自适应学习路径规划、编程教学AI助手等</td></tr>
+      <tr><td>6</td><td>AI健康与生活服务</td><td>将AI技术应用于健康管理、生活服务等场景，如AI营养分析师、心理健康对话系统、智能运动指导平台等</td></tr>
+      <tr><td>7</td><td>AI代码开发辅助</td><td>面向开发者的AI辅助工具，如代码审查Agent、API文档智能生成、架构设计助手、自动化测试生成平台等</td></tr>
+      <tr><td>8</td><td>AI数据分析与可视化</td><td>基于自然语言交互的数据分析平台，支持用户通过对话方式完成数据查询、分析与可视化，降低数据分析门槛</td></tr>
+      <tr><td>9</td><td>AI安全与内容治理</td><td>利用AI技术构建内容安全检测、隐私保护、AI生成内容识别等安全类Web应用，体现负责任AI的设计理念</td></tr>
+      <tr><td>10</td><td>AI社交与社区应用</td><td>基于AI技术增强社交体验的Web应用，如AI匹配推荐、智能社区运营助手、AI驱动的兴趣图谱构建等</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="no">3.2</span>选题要求</h3>
+  <ul>
+    <li>作品须为<span class="em">原创作品</span>，严禁抄袭或直接使用开源项目包装参赛</li>
+    <li>作品须以<span class="em">Web应用形态</span>呈现（含PC端Web、移动端Web等）</li>
+    <li>作品须<span class="em">深度集成AI技术</span>，AI功能应是应用的核心而非附属功能</li>
+    <li>鼓励关注<span class="em">社会价值</span>，解决真实问题，具备实际落地潜力</li>
+    <li>鼓励探索AI技术的<span class="em">创新应用方式</span>，而非简单复刻已有产品</li>
+  </ul>
+</section>
+
+<!-- ============ 4 参赛规则 ============ -->
+<section id="s4">
+  <h2 class="ch"><span class="no">04</span>参赛规则</h2>
+
+  <h3><span class="no">4.1</span>参赛对象</h3>
+  <ul>
+    <li>每支参赛队由 <span class="em">1-3名来自同一所学校</span> 的学生组成。</li>
+    <li>每队可配备不超过 <span class="em">2名指导老师</span>。</li>
+  </ul>
+
+  <h3><span class="no">4.2</span>赛事组别</h3>
+  <p>赛事分为以下四个组别，参赛队必须严格按规则选择对应组别：</p>
+  <table>
+    <thead><tr><th style="width:18%">组别</th><th style="width:38%">适用对象</th><th>报名规则</th></tr></thead>
+    <tbody>
+      <tr><td>研究生组</td><td>研究生</td><td>只能报名研究生组。</td></tr>
+      <tr><td>A组</td><td>985、211高校本科生</td><td>只能报名A组或更高组别（即研究生组）。</td></tr>
+      <tr><td>B组</td><td>非985/211的普通本科院校本科生</td><td>可报名B组或更高组别（即A组或研究生组）。</td></tr>
+      <tr><td>C组</td><td>高职高专院校学生</td><td>可报名C组或任意更高组别（即B组、A组或研究生组）。</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>重要提示：</b><br>
+    <b>组别选择要求：</b>参赛队在报名时，必须严格依据上表规定的“适用对象”与“报名规则”选择正确的参赛组别。<br>
+    <b>违规处理：</b>如经发现参赛队未按规定选择正确组别，将<b>无条件取消其参赛资格及所有成绩</b>。
+  </div>
+</section>
+
+<!-- ============ 5 省赛安排 ============ -->
+<section id="s5">
+  <h2 class="ch"><span class="no">05</span>省赛安排</h2>
+
+  <h3><span class="no">5.1</span>时间安排</h3>
+  <ul>
+    <li><span class="em">报名截止：</span>即日起 - 2026年11月18日</li>
+    <li><span class="em">作品提交截止时间：</span>2026年11月18日</li>
+    <li><span class="em">省赛赛制：</span>作品题；</li>
+    <li><span class="em">比赛方式：</span>由组委会统一发放比赛地址，请各位选手及时关注。</li>
+  </ul>
+  <p>本次省赛作品提交入口需参赛者完成缴费后，登录赛事个人中心所报赛项查看，不再单独提供外部链接。</p>
+  <p>作品指导提交截止日期为 <span class="em">2026年11月18日</span>。所有提交作品将进入专家评审阶段，评审意见预计于 <span class="em">2027年1月底</span> 统一发布。</p>
+  <p>请参赛者根据反馈及时修改完善，并在组委会公布省赛提交链接后，按规定流程完成最终提交。</p>
+  <p>请严格按以下要求提交作品：</p>
+
+  <h3><span class="no">5.2</span>作品提交要求</h3>
+
+  <h4>① 代码仓库</h4>
+  <table>
+    <thead><tr><th style="width:22%">要求项</th><th>具体要求</th></tr></thead>
+    <tbody>
+      <tr><td>托管平台</td><td>GitHub / Gitee（须设为Public或提供评审访问权限）</td></tr>
+      <tr><td>代码规范</td><td>代码结构清晰，包含有效注释，遵循主流代码规范</td></tr>
+      <tr><td>README文件</td><td>包含项目介绍、技术架构、安装运行指南、团队信息</td></tr>
+      <tr><td>Git记录</td><td>保留完整的Git提交历史，体现真实的开发过程</td></tr>
+      <tr><td>环境配置</td><td>提供完整的环境配置说明（含环境变量模板、依赖清单）</td></tr>
+    </tbody>
+  </table>
+
+  <h4>② 演示视频</h4>
+  <table>
+    <thead><tr><th style="width:22%">要求项</th><th>具体要求</th></tr></thead>
+    <tbody>
+      <tr><td>时长</td><td>5-8分钟</td></tr>
+      <tr><td>内容</td><td>包含项目介绍、核心功能演示、AI技术亮点展示</td></tr>
+      <tr><td>格式</td><td>MP4格式，分辨率不低于1080p</td></tr>
+      <tr><td>语言</td><td>普通话讲解，可配字幕</td></tr>
+    </tbody>
+  </table>
+
+  <h4>③ 技术文档</h4>
+  <table>
+    <thead><tr><th style="width:22%">要求项</th><th>具体要求</th></tr></thead>
+    <tbody>
+      <tr><td>格式</td><td>PDF格式，不超过30页</td></tr>
+      <tr><td>内容要求</td><td>项目概述、需求分析、系统架构设计、AI技术方案、核心功能实现、测试与部署、总结与展望</td></tr>
+      <tr><td>AI技术说明</td><td>须重点阐述AI技术的选型理由、集成方式、优化策略</td></tr>
+      <tr><td>创新点说明</td><td>须明确列出项目的技术创新点与应用创新点</td></tr>
+    </tbody>
+  </table>
+
+  <h4>④ 在线演示（可选加分项）</h4>
+  <table>
+    <thead><tr><th style="width:22%">要求项</th><th>具体要求</th></tr></thead>
+    <tbody>
+      <tr><td>部署要求</td><td>提供可公网访问的在线演示地址</td></tr>
+      <tr><td>可用性</td><td>评审期间须保持服务可用</td></tr>
+      <tr><td>体验账号</td><td>如需登录，须提供评审专用测试账号</td></tr>
+    </tbody>
+  </table>
+
+  <h4>⑤ 提交注意事项</h4>
+  <ul>
+    <li>所有材料须在截止时间前通过大赛官网统一提交</li>
+    <li><span class="em">API密钥等敏感信息不得出现在公开仓库中</span>，须通过环境变量方式配置</li>
+    <li><span class="em">提交后不得修改</span>，如有特殊情况须联系组委会处理</li>
+    <li>材料不完整将影响评审结果，建议提前检查确认</li>
+  </ul>
+
+  <h3><span class="no">5.3</span>奖项设置：省赛（复赛）</h3>
+  <ul>
+    <li><span class="em">评审组织：</span>由组委会统一评奖。</li>
+    <li><span class="em">奖项等级与比例：</span>
+      <ul>
+        <li><span class="em">一等奖：</span>≤ 本省参赛人数 10%（颁发荣誉证书，<b>晋级决赛</b>）</li>
+        <li><span class="em">二等奖：</span>≤ 本省参赛人数 20%（颁发荣誉证书，<b>晋级决赛</b>）</li>
+        <li><span class="em">三等奖：</span>≤ 本省参赛人数 30%（颁发荣誉证书，<b>晋级决赛</b>）</li>
+        <li><span class="em">优秀奖：</span>≤ 本省参赛人数 30%（颁发荣誉证书）</li>
+      </ul>
+    </li>
+    <li><span class="em">晋级规则：</span>省赛一、二、三等奖获得者晋级全国总决赛（决赛）。</li>
+  </ul>
+
+  <h3><span class="no">5.4</span>评审标准</h3>
+
+  <h4>评分维度总览</h4>
+  <table>
+    <thead><tr><th style="width:26%">评分维度</th><th style="width:12%">权重</th><th>核心考察点</th></tr></thead>
+    <tbody>
+      <tr><td>AI技术深度</td><td>35%</td><td>AI技术的应用深度、集成质量与创新性</td></tr>
+      <tr><td>创新性</td><td>25%</td><td>选题创新、模式创新、交互创新</td></tr>
+      <tr><td>前端工程质量</td><td>10%</td><td>前端代码质量、组件化架构、性能优化</td></tr>
+      <tr><td>实用性</td><td>10%</td><td>真实场景价值、问题解决能力</td></tr>
+      <tr><td>用户体验</td><td>10%</td><td>UI/UX设计、交互流畅度、易用性</td></tr>
+      <tr><td>社会价值与商业潜力</td><td>10%</td><td>社会意义、商业前景、可持续性</td></tr>
+    </tbody>
+  </table>
+
+  <h4>各维度详细评分细则</h4>
+
+  <p class="sub-bold">▍AI技术深度（35%）—— 本维度为最高权重，重点考察参赛作品在AI技术层面的深度与质量</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>大模型集成质量</td><td>8%</td><td>是否合理选择并高质量集成LLM，Prompt设计是否精巧，输出是否稳定可控</td></tr>
+      <tr><td>Agent/工作流设计</td><td>8%</td><td>是否实现AI Agent或复杂AI工作流，Agent是否具备规划、工具调用、自主决策能力</td></tr>
+      <tr><td>RAG技术应用</td><td>6%</td><td>是否实现RAG架构，检索策略是否合理，生成质量是否因检索增强而显著提升</td></tr>
+      <tr><td>多模态能力</td><td>5%</td><td>是否集成多种模态（文本、图像、语音、视频），多模态融合是否自然流畅</td></tr>
+      <tr><td>AI安全与可控性</td><td>4%</td><td>是否考虑AI输出的安全性、可解释性，是否实现内容过滤与兜底机制</td></tr>
+      <tr><td>MCP/工具集成</td><td>4%</td><td>是否通过MCP协议或Function Calling实现AI与外部工具/数据源的有效集成</td></tr>
+    </tbody>
+  </table>
+
+  <p class="sub-bold">▍创新性（25%）</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>选题创新</td><td>10%</td><td>是否发现独特的应用场景或未被满足的需求</td></tr>
+      <tr><td>技术方案创新</td><td>8%</td><td>AI技术的组合应用是否有新意，是否有独特的技术方案</td></tr>
+      <tr><td>交互模式创新</td><td>7%</td><td>人机交互方式是否有创新，用户体验是否超越传统模式</td></tr>
+    </tbody>
+  </table>
+
+  <p class="sub-bold">▍前端工程质量（10%）</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>前端代码质量</td><td>4%</td><td>TypeScript规范使用、组件结构清晰、代码可维护性强、无明显Bug</td></tr>
+      <tr><td>组件化与架构设计</td><td>3%</td><td>前端组件划分合理、状态管理规范、模块解耦清晰、可复用性好</td></tr>
+      <tr><td>前端性能优化</td><td>3%</td><td>首屏加载速度、渲染性能、资源优化（懒加载、代码分割、缓存策略等）</td></tr>
+    </tbody>
+  </table>
+
+  <p class="sub-bold">▍实用性（10%）</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>场景真实性</td><td>5%</td><td>是否面向真实需求，问题定义是否清晰</td></tr>
+      <tr><td>解决方案有效性</td><td>5%</td><td>AI方案是否真正解决了问题，相比传统方案是否有明显优势</td></tr>
+    </tbody>
+  </table>
+
+  <p class="sub-bold">▍用户体验（10%）</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>UI设计与视觉表现</td><td>4%</td><td>界面美观、布局合理、响应式适配、设计系统统一</td></tr>
+      <tr><td>前端交互体验</td><td>3%</td><td>路由切换流畅、动画过渡自然、操作反馈及时、加载状态优雅</td></tr>
+      <tr><td>AI交互体验</td><td>3%</td><td>流式输出渲染流畅、AI思考状态可视化、错误边界处理优雅</td></tr>
+    </tbody>
+  </table>
+
+  <p class="sub-bold">▍社会价值与商业潜力（10%）</p>
+  <table>
+    <thead><tr><th style="width:20%">考察点</th><th style="width:14%">分值占比</th><th>评分标准</th></tr></thead>
+    <tbody>
+      <tr><td>社会价值</td><td>5%</td><td>是否有助于解决社会问题、促进公平包容、推动行业进步</td></tr>
+      <tr><td>商业潜力</td><td>5%</td><td>是否具备商业模式、市场空间、可持续发展可能</td></tr>
+    </tbody>
+  </table>
+
+  <h4>评分说明</h4>
+  <ul>
+    <li>各维度采用百分制评分，最终按权重加权计算总分</li>
+    <li>评审专家组由高校教师、企业技术专家、AI行业从业者组成</li>
+    <li>每件作品由不少于3位评审专家独立评分，取平均分</li>
+    <li>决赛阶段增加现场答辩评分（占决赛总分的30%）</li>
+  </ul>
+
+  <h3><span class="no">5.5</span>大赛奖项评定规则</h3>
+  <p>每一项评分都会有专门的评审组进行打分，最终得分将根据各项评分的加权总和得出。评审组由专业设计师、AI技术专家和相关领域的学者组成，确保评审过程的专业性和权威性。</p>
+  <p><span class="em">奖项比例调整机制：</span>大赛主办方保留根据实际报名人数、选手晋级情况及评审工作实际需求，对各级别奖项预设比例进行适当调整的权利，以保障评审工作的公平性与合理性。</p>
+
+  <h3><span class="no">5.6</span>获奖资格核心要求</h3>
+  <ul>
+    <li><span class="em">零分卷不得奖；</span></li>
+    <li>赛事公布的获奖比例仅作为参考依据，不构成最终获奖承诺；</li>
+    <li>组委会专家组将结合赛题难易程度、全体选手整体答题水平，划定各奖项对应的获奖最低分数线，未达到对应分数线的选手，不得参与该奖项评选。</li>
+  </ul>
+</section>
+
+<!-- ============ 6 附录 ============ -->
+<section id="s6">
+  <h2 class="ch"><span class="no">06</span>附录 · 速成方向建议（非官方文件，供决策参考）</h2>
+  <div class="final">
+    <div class="label">★ RECOMMENDATION</div>
+    <h2>方向 2 · RAG知识问答系统 →「智学 · AI课程答疑助手」</h2>
+    <div class="quote">
+      <b>一句话定位：</b>大学生上传课件 / 文献 / 笔记，AI 自动构建个人知识库，回答<b>带原文出处、点击可溯源高亮</b>，支持跨文档综合提问与 AI 自动出题。
+    </div>
+    <p><b>选择理由：</b></p>
+    <ol>
+      <li><b>分值覆盖最全</b> —— 同时命中 AI技术深度35%（RAG 6% + LLM集成 8% + Agent 8% + 安全可控 4%）、前端工程10%、用户体验10%、实用性10%；</li>
+      <li><b>速成可行性最高</b> —— 技术链路全部开源成熟，30天内可交付“产品感”作品；不像多模态烧钱缓慢、不像纯Agent演示不可控；</li>
+      <li><b>演示记忆点强</b> —— “引用溯源卡片点击跳原文高亮”一个交互即可撑起创新性25% + 用户体验10%的评分记忆分。</li>
+    </ol>
+    <p><b>确定技术路线：</b></p>
+    <table>
+      <thead><tr><th style="width:20%">层级</th><th>选定方案</th></tr></thead>
+      <tbody>
+        <tr><td>前端</td><td><span class="code">Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui + Zustand</span></td></tr>
+        <tr><td>AI编排</td><td><span class="code">Vercel AI SDK</span>（streamText 流式 + Tool Calling 一套解决）</td></tr>
+        <tr><td>LLM / Embedding</td><td><span class="code">智谱 GLM-4.6</span> + <span class="code">embedding-3</span>（国内稳定、中文好）</td></tr>
+        <tr><td>向量库</td><td><span class="code">Supabase pgvector</span>（数据库 + 向量 + 鉴权一体）</td></tr>
+        <tr><td>PDF解析</td><td><span class="code">LlamaParse</span>（主）+ <span class="code">pdf-parse</span>（兜底）</td></tr>
+        <tr><td>RAG策略</td><td>语义Chunking(512tk/重叠64) → 混合检索(向量+BM25) → BGE-Rerank</td></tr>
+        <tr><td>部署</td><td><span class="code">Vercel</span>（免费公网演示，直接拿“在线演示加分项”）</td></tr>
+      </tbody>
+    </table>
+    <p><b>三条差异化记忆点：</b>① 引用溯源卡片点击跳原文；② 精确/探索双模式（体现“AI安全与可控性4%”）；③ 知识图谱侧栏可视化。</p>
+    <p><b>时间节点提醒：</b>作品与报名截止均为 <b>2026年11月18日</b>，评审意见预计 2027年1月底发布；省赛一、二、三等奖晋级全国总决赛；决赛现场答辩占总分30%。建议截止前3天完成提交，预留缓冲。</p>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
