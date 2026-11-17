@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
-import { buildApiError } from "@/lib/api-error";
+import { buildApiError, describeModelError } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
 import { CHAT_MODEL } from "@/lib/llm";
 import { retrieve } from "@/lib/retrieval";
@@ -351,6 +351,6 @@ export async function POST(request: Request) {
     return NextResponse.json(payload);
   } catch (error) {
     console.error("[quiz] 出题失败：", error);
-    return fail("INTERNAL_ERROR", `出题失败：${describeError(error)}`, 500);
+    return fail("INTERNAL_ERROR", `出题失败：${describeModelError(error)}`, 500);
   }
 }

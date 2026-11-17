@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import { buildApiError } from "@/lib/api-error";
+import { buildApiError, describeModelError } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
 import { CHAT_MODEL } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
     graph = await extractGraph(sample);
   } catch (error) {
     console.error("[graph] 抽取失败：", error);
-    return fail("INTERNAL_ERROR", `图谱生成失败：${describeError(error)}`, 500);
+    return fail("INTERNAL_ERROR", `图谱生成失败：${describeModelError(error)}`, 500);
   }
 
   if (graph.nodes.length === 0) {
