@@ -2,7 +2,7 @@
 // 说明：本项目模型为智谱 GLM（lib/llm.ts 的 CHAT_MODEL），不再有 DeepSeek 配置。
 
 import { NextResponse } from "next/server";
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { buildApiError } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
@@ -89,6 +89,83 @@ function sanitizeGraph(raw: { nodes: GraphNode[]; edges: GraphEdge[] }): Knowled
   return { nodes: [...nodeMap.values()], edges, generatedAt: new Date().toISOString() };
 }
 
+const GRAPH_SYSTEM = "你是课件知识图谱抽取器。只输出结构化结果，不要解释。";
+
+function buildGraphPrompt(sample: string): string {
+  return `从下面的课件片段中抽取核心概念与关系。
+
+要求：
+- 节点 ${Math.min(8, MAX_NODES)}~${MAX_NODES} 个：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
+- 边 ${Math.min(10, MAX_EDGES)}~${MAX_EDGES} 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
+- id 用英文小写加下划线（如 gradient_descent），label 用课件里的中文原词。
+- type 只能取：概念 / 方法 / 公式 / 结构 / 应用。
+- 每条边的 source / target 必须是已列出的节点 id。
+
+课件片段：
+${sample}`;
+}
+
+/** 从可能带 markdown 围栏的文本里抠出 JSON 并校验 */
+function tryParseGraph(text: unknown): KnowledgeGraph | null {
+  if (typeof text !== "string" || text.trim().length === 0) return null;
+
+  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+
+  try {
+    const parsed = graphSchema.safeParse(JSON.parse(cleaned.slice(start, end + 1)));
+    if (!parsed.success) return null;
+    const graph = sanitizeGraph(parsed.data);
+    return graph.nodes.length > 0 ? graph : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 抽图：结构化输出优先；失败后先用错误里携带的原文抢救一次，
+ * 再退回「纯文本 JSON + 服务端解析」。避免一次格式抖动就整功能报错。
+ */
+async function extractGraph(sample: string): Promise<KnowledgeGraph> {
+  try {
+    const { object } = await generateObject({
+      model: CHAT_MODEL,
+      schema: graphSchema,
+      temperature: 0.2,
+      // 20 节点 + 30 边的中文 JSON 很容易超过 2k token，被截断就会「没有返回」
+      maxOutputTokens: 4096,
+      maxRetries: 1,
+      system: GRAPH_SYSTEM,
+      prompt: buildGraphPrompt(sample),
+    });
+    return sanitizeGraph(object);
+  } catch (error) {
+    const reason = describeError(error);
+    console.warn(`[graph] generateObject 失败，尝试兜底：${reason}`);
+
+    // 有些实现会把「解析失败的原文」挂在 error.text 上，先抢救
+    const rescued = tryParseGraph((error as { text?: unknown }).text);
+    if (rescued) return rescued;
+
+    const { text } = await generateText({
+      model: CHAT_MODEL,
+      temperature: 0.2,
+      maxOutputTokens: 4096,
+      system: `${GRAPH_SYSTEM}
+必须只输出一个 JSON 对象，形如 {"nodes":[{"id":"...","label":"...","type":"..."}],"edges":[{"source":"...","target":"...","relation":"..."}]}，
+不要 markdown 代码块，不要任何解释文字。`,
+      prompt: buildGraphPrompt(sample),
+    });
+
+    const parsed = tryParseGraph(text);
+    if (parsed) return parsed;
+
+    throw new Error(`模型没有返回可解析的图谱 JSON（${reason}）`);
+  }
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -166,46 +243,28 @@ export async function POST(request: Request) {
     sample += piece;
   }
 
-  // ── 单次模型调用抽图 ──
+  // ── 抽图（结构化输出优先，失败自动兜底）──
+  let graph: KnowledgeGraph;
   try {
-    const { object } = await generateObject({
-      model: CHAT_MODEL,
-      schema: graphSchema,
-      temperature: 0.2,
-      maxOutputTokens: 2048,
-      system: `你是课件知识图谱抽取器。只输出结构化结果，不要解释。`,
-      prompt: `从下面的课件片段中抽取核心概念与关系。
-
-要求：
-- 节点 ${Math.min(8, MAX_NODES)}~${MAX_NODES} 个：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
-- 边 ${Math.min(10, MAX_EDGES)}~${MAX_EDGES} 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
-- id 用英文小写加下划线（如 gradient_descent），label 用课件里的中文原词。
-- type 只能取：概念 / 方法 / 公式 / 结构 / 应用。
-- 每条边的 source / target 必须是已列出的节点 id。
-
-课件片段：
-${sample}`,
-    });
-
-    const graph = sanitizeGraph({ nodes: object.nodes, edges: object.edges });
-
-    if (graph.nodes.length === 0) {
-      return fail("INTERNAL_ERROR", "模型未抽取到有效节点，请重试", 500);
-    }
-
-    const { error: updateError } = await supabase
-      .from("documents")
-      .update({ graph_json: graph })
-      .eq("id", documentId);
-
-    if (updateError) {
-      // 缓存写失败不影响本次返回，但要让调用方知道
-      console.warn(`[graph] 缓存写入失败：${updateError.message}`);
-    }
-
-    return NextResponse.json({ graph, cached: false });
+    graph = await extractGraph(sample);
   } catch (error) {
     console.error("[graph] 抽取失败：", error);
     return fail("INTERNAL_ERROR", `图谱生成失败：${describeError(error)}`, 500);
   }
+
+  if (graph.nodes.length === 0) {
+    return fail("INTERNAL_ERROR", "模型未抽取到有效节点，请重试", 500);
+  }
+
+  const { error: updateError } = await supabase
+    .from("documents")
+    .update({ graph_json: graph })
+    .eq("id", documentId);
+
+  if (updateError) {
+    // 缓存写失败不影响本次返回，但要让调用方知道
+    console.warn(`[graph] 缓存写入失败：${updateError.message}`);
+  }
+
+  return NextResponse.json({ graph, cached: false });
 }
