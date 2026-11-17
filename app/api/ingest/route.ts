@@ -152,8 +152,15 @@ export async function POST(request: Request) {
 
   // ── 原始文件入库（先 Storage，再写数据库，失败可回滚）──
   const documentId = crypto.randomUUID();
-  const safeName =
-    file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(-80) || `upload.${fileType}`;
+  // 存储键必须是 ASCII 安全字符：Supabase Storage 对中文文件名会直接返回 "Invalid key"。
+  // 展示用标题仍保留原文件名（见下方 documents.title），此处只影响对象存储路径。
+  const extName = (/\.([A-Za-z0-9]{1,8})$/.exec(file.name)?.[1] ?? fileType).toLowerCase();
+  const asciiBase = file.name
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^[_\-.]+|[_\-.]+$/g, "")
+    .slice(0, 60);
+  const safeName = `${asciiBase || "upload"}.${extName}`;
   const storagePath = `${documentId}/${safeName}`;
   const mimeType =
     file.type || (fileType === "pdf" ? "application/pdf" : "text/plain; charset=utf-8");
