@@ -22,3 +22,39 @@ export const zhipu = createOpenAICompatible({
  * 写成 "glm-4.7" 会落到付费标准版，请勿去掉 -flash 后缀。
  */
 export const CHAT_MODEL = zhipu("glm-4.7-flash");
+
+/**
+ * 给请求体注入 thinking 开关的 fetch。
+ *
+ * 背景（实测）：GLM-4.7-Flash 默认开启深度思考。做图标/出题这类结构化任务时，
+ * 模型会把 2048 个输出 token 全花在 reasoning 上（耗时 53 秒、正文 0 字符），
+ * 结果就是「模型没有返回响应」。AI SDK 没有对应参数，只能在 HTTP 层补这个字段。
+ * 关闭后同一任务 33 秒、reasoning_tokens = 0、正常产出 JSON。
+ */
+function createThinkingFetch(disable: boolean): typeof fetch {
+  return async (input, init) => {
+    if (disable && init && typeof init.body === "string") {
+      try {
+        const payload = JSON.parse(init.body) as Record<string, unknown>;
+        payload.thinking = { type: "disabled" };
+        return fetch(input, { ...init, body: JSON.stringify(payload) });
+      } catch {
+        // 请求体不是 JSON 时原样发出
+      }
+    }
+    return fetch(input, init);
+  };
+}
+
+const structuredProvider = createOpenAICompatible({
+  name: "zhipu-structured",
+  baseURL: ZHIPU_BASE_URL,
+  apiKey: process.env.ZHIPU_API_KEY,
+  fetch: createThinkingFetch(true),
+});
+
+/**
+ * 结构化任务专用模型（出题 Agent / 知识图谱抽取）：关闭深度思考。
+ * 问答仍用 CHAT_MODEL，保留推理以获得更好的作答质量。
+ */
+export const STRUCTURED_MODEL = structuredProvider("glm-4.7-flash");

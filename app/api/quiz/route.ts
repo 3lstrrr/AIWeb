@@ -7,7 +7,7 @@ import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { buildApiError, describeModelError } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
-import { CHAT_MODEL } from "@/lib/llm";
+import { STRUCTURED_MODEL } from "@/lib/llm";
 import { retrieve } from "@/lib/retrieval";
 import type {
   ApiErrorBody,
@@ -313,7 +313,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await generateText({
-      model: CHAT_MODEL,
+      model: STRUCTURED_MODEL,
       system: buildSystemPrompt(count, type),
       prompt: `请基于文档 ${documentId} 出 ${count} 道${TYPE_LABEL[type]}。${
         topic ? `聚焦主题：${topic}。` : "主题不限，覆盖文档重点。"

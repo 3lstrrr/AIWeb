@@ -6,7 +6,7 @@ import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { buildApiError, describeModelError, isRateLimited } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
-import { CHAT_MODEL } from "@/lib/llm";
+import { STRUCTURED_MODEL } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { ApiErrorBody, ApiErrorCode, GraphEdge, GraphNode, KnowledgeGraph } from "@/types";
 
@@ -25,8 +25,8 @@ const MAX_EDGES = 30;
  * 这里收敛到 6k 字符以内（仍覆盖全部 6 页讲义的主要概念）。
  */
 const SAMPLE_CHUNK_COUNT = 20;
-const SAMPLE_CHARS_PER_CHUNK = 300;
-const SAMPLE_TOTAL_CHARS = 6_000;
+const SAMPLE_CHARS_PER_CHUNK = 200;
+const SAMPLE_TOTAL_CHARS = 4_000;
 
 /** 单次模型调用超时：超时立即放弃，避免把 maxDuration 拖满让人干等 */
 const MODEL_TIMEOUT_MS = 60_000;
@@ -43,17 +43,16 @@ const graphSchema = z.object({
         type: z.string().min(1).max(10),
       }),
     )
-    .min(1)
-    .max(MAX_NODES),
-  edges: z
-    .array(
-      z.object({
-        source: z.string().min(1),
-        target: z.string().min(1),
-        relation: z.string().min(1).max(12),
-      }),
-    )
-    .max(MAX_EDGES),
+    .min(1),
+  // 注意：这里不设 .max()。模型经常超量输出（实测给过 35 个节点），
+  // 用 schema 拒绝会导致整次生成作废；上限统一交给 sanitizeGraph 截断。
+  edges: z.array(
+    z.object({
+      source: z.string().min(1),
+      target: z.string().min(1),
+      relation: z.string().min(1).max(12),
+    }),
+  ),
 });
 
 interface ChunkRow {
@@ -102,8 +101,8 @@ function buildGraphPrompt(sample: string): string {
   return `从下面的课件片段中抽取核心概念与关系。
 
 要求：
-- 节点 6~15 个：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
-- 边 8~20 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
+- 节点最多 12 个（超出会被截断）：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
+- 边最多 18 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
 - id 用英文小写加下划线（如 gradient_descent），label 用课件里的中文原词。
 - type 只能取：概念 / 方法 / 公式 / 结构 / 应用。
 - 每条边的 source / target 必须是已列出的节点 id。
@@ -138,7 +137,7 @@ function tryParseGraph(text: unknown): KnowledgeGraph | null {
 async function extractGraph(sample: string): Promise<KnowledgeGraph> {
   try {
     const { object } = await generateObject({
-      model: CHAT_MODEL,
+      model: STRUCTURED_MODEL,
       schema: graphSchema,
       temperature: 0.2,
       // 20 节点 + 30 边的中文 JSON 很容易超过 2k token，被截断就会「没有返回」
@@ -164,7 +163,7 @@ async function extractGraph(sample: string): Promise<KnowledgeGraph> {
     if (rescued) return rescued;
 
     const { text } = await generateText({
-      model: CHAT_MODEL,
+      model: STRUCTURED_MODEL,
       temperature: 0.2,
       maxOutputTokens: 2048,
       maxRetries: 0,
