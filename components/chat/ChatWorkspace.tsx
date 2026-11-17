@@ -6,6 +6,7 @@
 import dynamic from "next/dynamic";
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -35,6 +36,22 @@ export default function ChatWorkspace() {
   /** 移动端查看器是否展开（桌面端始终展示，此状态不参与布局） */
   const [mobileViewerOpen, setMobileViewerOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // 预热原文查看器：react-pdf 的 chunk 与 pdf.js worker（合计约 2 MB）只有点开引用时才需要，
+  // 若等点击时才开始串行下载，首屏要等 5 秒以上。这里在浏览器空闲时提前拉好，点击基本即时。
+  useEffect(() => {
+    const warm = () => {
+      void import("@/components/viewer/PdfViewer");
+      void fetch("/pdf.worker.min.mjs", { cache: "force-cache" }).catch(() => {});
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(warm, { timeout: 5000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(warm, 3000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleCitationClick = useCallback((citation: Citation) => {
     setSelection(citation);

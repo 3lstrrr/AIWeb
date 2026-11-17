@@ -17,6 +17,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 /** 逐级缩短的匹配键：pdf.js 的文本片段往往被切成半句话，长键更容易匹配失败 */
 const HIGHLIGHT_KEY_LENGTHS = [24, 16, 12, 8, 6];
 
+/**
+ * signed URL 客户端缓存：服务端签名有效期 10 分钟，这里保守存 9 分钟。
+ * 同一文档反复点引用时不必每次都等一次 Supabase 往返（实测约 1.6 秒）。
+ */
+const SIGNED_URL_TTL = 9 * 60 * 1000;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 /** 页面四周留白（对应外层 p-3）与最大渲染宽度 */
 const CONTAINER_PADDING = 28;
 const MAX_PAGE_WIDTH = 860;
@@ -81,6 +88,13 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
     setUrl(null);
     setError(null);
 
+    // 命中缓存就直接用，省掉一次 1.6 秒的服务端往返
+    const cached = signedUrlCache.get(documentId);
+    if (cached && cached.expiresAt > Date.now()) {
+      setUrl(cached.url);
+      return;
+    }
+
     void (async () => {
       try {
         const response = await fetch(`/api/documents/${documentId}/url`);
@@ -98,7 +112,13 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
           return;
         }
         const data = payload as { url: string };
-        if (!cancelled) setUrl(data.url);
+        if (!cancelled) {
+          signedUrlCache.set(documentId, {
+            url: data.url,
+            expiresAt: Date.now() + SIGNED_URL_TTL,
+          });
+          setUrl(data.url);
+        }
       } catch (fetchError) {
         if (!cancelled) {
           const reason = describeError(fetchError);
