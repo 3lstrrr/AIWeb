@@ -195,3 +195,119 @@
 - **构建**：若 Build 阶段 OOM，把 `render.yaml` 的 `buildCommand` 改成 `npm ci && npx next build`（改用 webpack，内存占用低于 Turbopack）。
 - **数据层不变**：Supabase 迁移、Storage bucket、环境变量内容与 Vercel 完全一致，按本文第 1–2 节做即可。
 - **冒烟测试不变**：仍按第 5 节四步走，只是域名换成 `https://xxx.onrender.com`。
+
+---
+
+## 替代方案 2：Hugging Face Spaces（**注意：部分地区已要求付费套餐**）
+
+> ⚠️ 实测：部分账号创建 Gradio / Docker Space 时会被提示需要付费套餐。创建前先看 Free 档是否可选；不可选就跳到方案 5（GitHub Codespaces）。
+
+Render 现在多数资源类型都要求绑定支付方式，没有信用卡就无法创建。HF Spaces 若仍提供免费 CPU Basic，则只需邮箱注册、免费给一个固定 HTTPS 地址。
+
+仓库根目录已提供 `Dockerfile`（监听 7860，HF 的默认端口）与 `.dockerignore`。
+
+### 步骤
+
+1. <https://huggingface.co/new-space> → **SDK 选 Docker** → 模板选 **Blank** → 命名如 `zhixue` → Create。
+2. Space 仓库会自动带一个 `README.md`（里面是 `sdk: docker` / `app_port: 7860` 元数据）和一个示例 Dockerfile。**这个 README 不能丢**，丢了 HF 就不认这是 Docker Space。
+3. 把本项目代码推进 Space 仓库，**但不要覆盖它自带的 README.md**：
+
+   ```powershell
+   # 1) 克隆 Space 仓库
+   git clone https://huggingface.co/spaces/<你的用户名>/zhixue D:\hf-zhixue
+
+   # 2) 复制项目文件（排除 .git / node_modules / .next / docs，且不覆盖 README.md）
+   robocopy D:\AIWeb\AIWeb D:\hf-zhixue /E /XD .git node_modules .next docs /XF README.md .env.local
+
+   # 3) 推送
+   cd D:\hf-zhixue
+   git add -A
+   git commit -m "deploy zhixue"
+   git push
+   ```
+
+   > bash 用户等价写法：`rsync -av --exclude={'.git','node_modules','.next','docs','README.md','.env.local'} ./ /path/hf-zhixue/`
+
+4. Space → **Settings → Variables and secrets**，逐条加（名字与本文第 3 节完全一致）：`ZHIPU_API_KEY`、`NEXT_PUBLIC_SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`NEXT_PUBLIC_SITE_URL`（填 `https://<用户名>-zhixue.hf.space`），可选 `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`。
+5. 回 Space 首页看构建日志，首次约 5–10 分钟。成功后地址为 `https://<用户名>-zhixue.hf.space`。
+6. 冒烟测试仍按第 5 节四步。
+
+### 与 Render/Vercel 的差异
+
+| 维度 | Hugging Face Spaces |
+| --- | --- |
+| 费用 / 卡 | 免费、**无需信用卡**；公开 Space 免费（私有要付费） |
+| 资源 | 2 vCPU / **16 GB 内存**（比 Render 免费档宽松很多，20 MB PDF 解析无压力） |
+| 休眠 | 48 小时无访问后休眠，唤醒约 20–40 秒 |
+| 请求体 | 无 4.5 MB 限制 |
+| 端口 | 必须监听 **7860**（Dockerfile 已处理） |
+
+### 已知限制
+
+- `NEXT_PUBLIC_*` 在 Docker **构建期**拿不到 HF 的 secrets，因此 `NEXT_PUBLIC_SITE_URL` 不会生效，OG 卡片地址会回落 `localhost`——**只影响社交分享预览，不影响功能**。若要修，可在 Dockerfile 里加 `ARG NEXT_PUBLIC_SITE_URL` + `ENV`，再用 `docker build --build-arg` 构建（HF 不支持传 build-arg，需改用 CI）。
+- Space 仓库与 GitHub 仓库是两份代码，更新后需要重新执行第 3 步同步。
+
+---
+
+## 替代方案 3：本机 + Cloudflare Tunnel（零成本，仅适合答辩当天）
+
+不需要任何注册：
+
+```bash
+npm run build && npm run start        # 先在本机跑起来（3000 端口）
+cloudflared tunnel --url http://localhost:3000
+```
+
+会打印一个 `https://xxx.trycloudflare.com` 临时地址。
+
+- ✅ 零成本、零注册、真 HTTPS
+- ❌ 电脑和进程必须全程开着；进程重启后 URL 会变
+- 适合：答辩当天兜底，**不适合作为正式提交地址**
+
+---
+
+## 替代方案 4：国内云学生机（最稳，需支付宝而非信用卡）
+
+| 项 | 说明 |
+| --- | --- |
+| 购买 | 阿里云/腾讯云「轻量应用服务器」学生机或新用户特惠，2 核 2G 约 ¥10–40/月，**支付宝/微信付款 + 实名认证，无需信用卡** |
+| 优势 | 无冷启动、无请求体限制、可绑域名、可跑 120 秒长任务，答辩最不容易翻车 |
+| 部署 | 见下方命令 |
+
+```bash
+# Ubuntu 22.04
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs nginx
+git clone git@github.com:3lstrrr/AIWeb.git && cd AIWeb
+npm ci && npm run build
+npm i -g pm2
+PORT=3000 pm2 start "npm run start" --name zhixue && pm2 save
+# Nginx 反代 3000 → 80，或直接在安全组放行 3000 端口用 http://<公网IP>:3000 访问
+```
+
+---
+
+## 方案 5：GitHub Codespaces（当前最现实的免卡方案）
+
+> 适用场景：Vercel 不支持 +86 手机号注册、没有信用卡、Render 与 HF 都要求付费。
+> 仓库已提供 `.devcontainer/devcontainer.json`：创建即自动 `npm ci`，3000 端口默认公开。
+
+### 步骤
+
+1. 仓库页 → **Code → Codespaces → Create codespace on main**（个人账号免费额度 120 核时/月，2 核机器约 60 小时）
+2. **必须先配密钥**：<https://github.com/settings/codespaces> → Codespaces secrets → 加 `ZHIPU_API_KEY`、`NEXT_PUBLIC_SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`，并在 *Repository access* 里勾选本仓库；配完**重建 codespace**（密钥只在创建时注入）
+3. 终端执行：
+
+   ```bash
+   npm run build && npm run start
+   ```
+
+4. VS Code 底部 **Ports** 面板 → 找到 3000 → 右键 **Port Visibility → Public**
+5. 地址形如 `https://<codespace-name>-3000.app.github.dev`，任何人可直接访问
+
+### 注意事项
+
+- **同一个 codespace 的地址是固定的**，停止再启动地址不变；只有删除/重建才会变。
+- 默认 **30 分钟无操作会自动停止**（VS Code 设置里可把 *Codespaces → Default idle timeout* 调到最多 240 分钟）。停止期间地址无法访问，需手动重启。
+- 免费额度按核时计算（60 小时/月），答辩期足够，但别长期挂着。
+- `NEXT_PUBLIC_SITE_URL` 可以填这个地址；但若之后重建 codespace 地址会变，建议留空（仅影响 OG 分享卡片）。
+- 因为不是「永久在线」，**不建议作为唯一提交地址**——正式提交建议配合方案 4（学生机）。

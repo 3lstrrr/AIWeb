@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { FileText, ListChecks, Pencil, Search, Waypoints, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { describeError, readApiError } from "@/lib/api-error";
@@ -12,6 +13,13 @@ import { createId } from "@/lib/id";
 import { useChatStore } from "@/stores/chat";
 import { useGraphStore } from "@/stores/graph";
 import type { Conversation } from "@/types";
+
+/** 底部工具入口：与会话列表统一字号与行高，图标用 lucide 保证跨平台一致 */
+const TOOL_LINKS = [
+  { href: "/upload", label: "文档管理", icon: FileText },
+  { href: "/quiz", label: "AI 出题", icon: ListChecks },
+  { href: "/debug", label: "检索调试", icon: Search },
+] as const;
 
 export default function Sidebar() {
   const conversations = useChatStore((state) => state.conversations);
@@ -182,7 +190,7 @@ export default function Sidebar() {
             type="button"
             onClick={() => void handleCreate()}
             disabled={busy}
-            className="mt-2 w-full rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-50"
+            className="mt-2 w-full rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-50"
           >
             {busy ? "创建中…" : "+ 新建对话"}
           </button>
@@ -191,7 +199,7 @@ export default function Sidebar() {
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             placeholder="搜索会话标题…"
-            className="mt-2 w-full rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+            className="mt-2 w-full rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
           />
         </div>
 
@@ -200,7 +208,7 @@ export default function Sidebar() {
           {loading && conversations.length === 0 && (
             <div className="space-y-2 p-1">
               {[0, 1, 2, 3].map((index) => (
-                <Skeleton key={index} className="h-7 w-full rounded-lg" />
+                <Skeleton key={index} className="h-8 w-full rounded-lg" />
               ))}
             </div>
           )}
@@ -223,16 +231,18 @@ export default function Sidebar() {
                 }`}
               >
                 {editing ? (
+                  // 编辑态必须有独立底色：active 行是深色背景，只用 text-* 会让文字融进背景
                   <input
                     autoFocus
                     value={editingTitle}
                     onChange={(event) => setEditingTitle(event.target.value)}
+                    onFocus={(event) => event.target.select()}
                     onBlur={() => void commitRename(item.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") void commitRename(item.id);
                       if (event.key === "Escape") setEditingId(null);
                     }}
-                    className="min-w-0 flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs text-neutral-900 outline-none"
+                    className="min-w-0 flex-1 rounded-md border border-neutral-400 bg-white px-1.5 py-0.5 text-sm text-neutral-900 outline-none ring-2 ring-white/60"
                   />
                 ) : (
                   <button
@@ -259,18 +269,22 @@ export default function Sidebar() {
                       }}
                       aria-label="重命名"
                       title="重命名"
-                      className={`rounded p-1.5 text-xs ${active ? "hover:bg-white/20" : "hover:bg-neutral-200"}`}
+                      className={`rounded p-1 transition-colors ${
+                        active ? "hover:bg-white/20" : "hover:bg-neutral-200"
+                      }`}
                     >
-                      ✎
+                      <Pencil className="size-3.5" aria-hidden />
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDelete(item.id)}
                       aria-label="删除"
                       title="删除"
-                      className={`rounded p-1.5 text-xs ${active ? "hover:bg-white/20" : "hover:bg-neutral-200"}`}
+                      className={`rounded p-1 transition-colors ${
+                        active ? "hover:bg-white/20" : "hover:bg-neutral-200"
+                      }`}
                     >
-                      ✕
+                      <X className="size-3.5" aria-hidden />
                     </button>
                   </span>
                 )}
@@ -280,37 +294,36 @@ export default function Sidebar() {
         </nav>
 
         <div className="border-t border-neutral-200 p-2">
+          <p className="px-2 pb-1 pt-0.5 text-[11px] font-medium tracking-wide text-neutral-400">
+            工具
+          </p>
+
           <button
             type="button"
             onClick={() => {
               openGraphDrawer();
               setOpen(false);
             }}
-            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-100"
+            className="mb-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-100"
           >
-            <span aria-hidden>🕸️</span> 知识图谱
+            <Waypoints className="size-4 shrink-0 text-neutral-400" aria-hidden />
+            知识图谱
           </button>
-          <Link
-            href="/upload"
-            onClick={() => setOpen(false)}
-            className="mb-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-100"
-          >
-            <span aria-hidden>📄</span> 文档管理
-          </Link>
-          <Link
-            href="/quiz"
-            onClick={() => setOpen(false)}
-            className="mb-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-100"
-          >
-            <span aria-hidden>📝</span> AI 出题
-          </Link>
-          <Link
-            href="/debug"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-100"
-          >
-            <span aria-hidden>🔍</span> 检索调试
-          </Link>
+
+          {TOOL_LINKS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="mb-0.5 flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-100"
+              >
+                <Icon className="size-4 shrink-0 text-neutral-400" aria-hidden />
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
       </aside>
     </>

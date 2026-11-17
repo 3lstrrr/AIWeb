@@ -1,0 +1,19 @@
+{
+  // GitHub Codespaces 一键环境：创建即装依赖，3000 端口自动公开可访问。
+  // 用法：仓库页 → Code → Codespaces → Create codespace on main
+  "name": "zhixue",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js",
+      "visibility": "public",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "npm ci",
+  "postAttachCommand": "echo '① 确认 Codespaces Secrets 已配置（ZHIPU_API_KEY / NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY） ② npm run build && npm run start ③ 端口 3000 设为 Public'",
+  "hostRequirements": {
+    "cpus": 2
+  }
+}
