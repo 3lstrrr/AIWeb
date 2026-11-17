@@ -22,10 +22,15 @@ const SITE_TITLE = "智学 · AI 课程答疑助手";
 const SITE_DESCRIPTION =
   "上传课件与文献构建专属知识库，基于 RAG 检索增强生成作答，每条回答附带原文引用与页码范围，点击即可定位高亮。";
 
-/** 站点根地址：优先 NEXT_PUBLIC_SITE_URL，其次 Vercel 注入的 VERCEL_URL，本地回落 localhost */
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+/** 站点根地址：显式配置 > Vercel > Render > 本地，保证 OG 卡片拿到绝对地址 */
+function resolveSiteUrl(): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL;
+  return "http://localhost:3000";
+}
+
+const siteUrl = resolveSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

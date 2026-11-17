@@ -163,3 +163,35 @@
 - [ ] Storage bucket `documents` 为**私有**
 - [ ] 已决定是否开启 `BASIC_AUTH_USER/PASSWORD`（不开启则任何拿到地址的人都能上传/删除/出题）
 - [ ] `/debug` 调试页是否需要在生产暴露（当前是公开页面，可在上线前临时下线该路由或依赖 Basic Auth 保护）
+
+---
+
+## 替代方案：部署到 Render（Vercel 注册不了时）
+
+仓库根目录已提供 `render.yaml` Blueprint，可直接一键创建服务。
+
+### 与 Vercel 的关键差异
+
+| 维度 | Vercel | Render（Free） |
+| --- | --- | --- |
+| 请求体上限 | **4.5 MB**（大 PDF 会被 413） | **无此限制**，本项目的 20 MB 上限真正生效 ✅ |
+| 运行形态 | Serverless 函数，`maxDuration` 生效 | 常驻 Node 服务，`maxDuration` 被忽略，改由平台代理超时决定 |
+| 冷启动 | 基本无 | 15 分钟无请求后休眠，**下次访问 30–60 秒**才起来 |
+| 资源 | 按函数计 | 512 MB 内存 / 0.1 CPU（免费档） |
+| 磁盘 | 无状态 | 无状态（本项目中转都走 Supabase，无影响） |
+
+### 部署步骤
+
+1. Render Dashboard → **New → Blueprint** → 选择 `3lstrrr/AIWeb`（需先授权 GitHub App）。
+2. Render 会读取 `render.yaml`，逐个弹出 `sync: false` 的变量，按 `docs/DEPLOYMENT.md` 第 3 节的表填写。
+3. **`NEXT_PUBLIC_SITE_URL` 先留空也能部署**，首次成功后服务地址形如 `https://zhixue-xxxx.onrender.com`，把它填回去再 **Manual Deploy → Clear build cache & deploy**（`NEXT_PUBLIC_*` 是构建期内联，必须重新构建）。
+4. 首次构建约 3–6 分钟（`npm ci` + `next build`）；失败先看 Build Logs 里是 `npm ci` 还是 `next build`。
+
+### 注意事项
+
+- **冷启动**：评审前 1 分钟自己先打开一次首页把服务唤醒，否则评委第一次要等 30–60 秒。
+- **超时**：Render 代理层对单请求有限制（以控制台/文档为准）。`/api/quiz`、`/api/graph` 实测 10–40 秒，正常够用；若遇到 502/超时，把出题数量调小或换更小的文档。
+- **内存**：免费档 512 MB。`/api/ingest` 用 pdf-parse 解析大 PDF 时内存会飙，**建议课件控制在 10 MB 以内**。
+- **构建**：若 Build 阶段 OOM，把 `render.yaml` 的 `buildCommand` 改成 `npm ci && npx next build`（改用 webpack，内存占用低于 Turbopack）。
+- **数据层不变**：Supabase 迁移、Storage bucket、环境变量内容与 Vercel 完全一致，按本文第 1–2 节做即可。
+- **冒烟测试不变**：仍按第 5 节四步走，只是域名换成 `https://xxx.onrender.com`。
