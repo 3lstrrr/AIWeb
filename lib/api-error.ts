@@ -37,6 +37,12 @@ export function describeError(error: unknown): string {
   return String(error);
 }
 
+/** 是否为供应商限流（这类错误重试无意义，应立即失败并提示等待） */
+export function isRateLimited(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message : String(error);
+  return /速率限制|访问量过大|系统繁忙|rate.?limit|too many requests|\b429\b|1302|1305/i.test(raw);
+}
+
 /**
  * 把模型供应商的原始报错翻译成「知道下一步该干什么」的中文。
  * 智谱返回的英文/数字错误码对使用者没有意义，尤其是免费档限流。
@@ -44,9 +50,9 @@ export function describeError(error: unknown): string {
 export function describeModelError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
 
-  // 智谱 1305 / HTTP 429：并发或 QPS 超限
-  if (/访问量过大|系统繁忙|rate.?limit|too many requests|\b429\b|1305/i.test(raw)) {
-    return "模型服务当前限流（智谱免费档在高峰期较常见），通常 30 秒到 3 分钟后恢复。建议：一次只跑一个生成任务、减少题目数量，或错峰重试。";
+  // 智谱 1302 速率限制 / 1305 访问量过大 / HTTP 429：并发或 QPS 超限
+  if (/速率限制|访问量过大|系统繁忙|rate.?limit|too many requests|\b429\b|1302|1305/i.test(raw)) {
+    return "模型服务当前限流（智谱免费档并发配额很低），通常 30 秒到 3 分钟后恢复。建议：一次只跑一个生成任务（出题与图谱不要同时点）、减少题目数量，或错峰重试。";
   }
   // 1113：账户欠费 / 额度不足
   if (/欠费|余额不足|额度|1113|insufficient|quota/i.test(raw)) {

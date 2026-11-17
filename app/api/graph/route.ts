@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import { buildApiError, describeModelError } from "@/lib/api-error";
+import { buildApiError, describeModelError, isRateLimited } from "@/lib/api-error";
 import { getEnv } from "@/lib/env";
 import { CHAT_MODEL } from "@/lib/llm";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -19,10 +19,17 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const MAX_NODES = 20;
 const MAX_EDGES = 30;
 
-/** 抽样：最多取多少个切片、每个切片多少字符（控制 prompt 体积） */
-const SAMPLE_CHUNK_COUNT = 40;
-const SAMPLE_CHARS_PER_CHUNK = 400;
-const SAMPLE_TOTAL_CHARS = 12_000;
+/**
+ * 抽样：控制 prompt 体积。
+ * 免费档模型对长输入的 prefill 很慢，12k 字符曾是「一次要等 60 秒」的主因，
+ * 这里收敛到 6k 字符以内（仍覆盖全部 6 页讲义的主要概念）。
+ */
+const SAMPLE_CHUNK_COUNT = 20;
+const SAMPLE_CHARS_PER_CHUNK = 300;
+const SAMPLE_TOTAL_CHARS = 6_000;
+
+/** 单次模型调用超时：超时立即放弃，避免把 maxDuration 拖满让人干等 */
+const MODEL_TIMEOUT_MS = 60_000;
 
 /** Postgres 未定义列的报错码 */
 const UNDEFINED_COLUMN = "42703";
@@ -95,8 +102,8 @@ function buildGraphPrompt(sample: string): string {
   return `从下面的课件片段中抽取核心概念与关系。
 
 要求：
-- 节点 ${Math.min(8, MAX_NODES)}~${MAX_NODES} 个：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
-- 边 ${Math.min(10, MAX_EDGES)}~${MAX_EDGES} 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
+- 节点 6~15 个：只抽片段中真实出现的名词性概念（术语、方法、公式、模型、指标），不要编造。
+- 边 8~20 条：relation 用 2~6 个字的动词短语（如「属于」「用于」「包含」「依赖」「对比」）。
 - id 用英文小写加下划线（如 gradient_descent），label 用课件里的中文原词。
 - type 只能取：概念 / 方法 / 公式 / 结构 / 应用。
 - 每条边的 source / target 必须是已列出的节点 id。
@@ -135,14 +142,21 @@ async function extractGraph(sample: string): Promise<KnowledgeGraph> {
       schema: graphSchema,
       temperature: 0.2,
       // 20 节点 + 30 边的中文 JSON 很容易超过 2k token，被截断就会「没有返回」
-      maxOutputTokens: 4096,
-      maxRetries: 1,
+      maxOutputTokens: 2048,
+      maxRetries: 0,
+      abortSignal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
       system: GRAPH_SYSTEM,
       prompt: buildGraphPrompt(sample),
     });
     return sanitizeGraph(object);
   } catch (error) {
     const reason = describeError(error);
+
+    // 限流时重试毫无意义，直接快速失败并给出可操作提示（否则用户要干等一分多钟）
+    if (isRateLimited(error)) {
+      throw new Error(describeModelError(error));
+    }
+
     console.warn(`[graph] generateObject 失败，尝试兜底：${reason}`);
 
     // 有些实现会把「解析失败的原文」挂在 error.text 上，先抢救
@@ -152,7 +166,9 @@ async function extractGraph(sample: string): Promise<KnowledgeGraph> {
     const { text } = await generateText({
       model: CHAT_MODEL,
       temperature: 0.2,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 2048,
+      maxRetries: 0,
+      abortSignal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
       system: `${GRAPH_SYSTEM}
 必须只输出一个 JSON 对象，形如 {"nodes":[{"id":"...","label":"...","type":"..."}],"edges":[{"source":"...","target":"...","relation":"..."}]}，
 不要 markdown 代码块，不要任何解释文字。`,
