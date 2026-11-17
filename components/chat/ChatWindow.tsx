@@ -12,6 +12,7 @@ import MessageBubble from "@/components/chat/MessageBubble";
 import ModeSwitch from "@/components/chat/ModeSwitch";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 import { describeError } from "@/lib/api-error";
+import { createId } from "@/lib/id";
 import { useChatStore } from "@/stores/chat";
 import { useDocsStore } from "@/stores/docs";
 import type { ChatMessage, Citation, DocumentSummary } from "@/types";
@@ -110,7 +111,7 @@ export default function ChatWindow({
 
     const applyDefault = () => {
       if (!useChatStore.getState().currentConversationId) {
-        setCurrentConversationId(crypto.randomUUID());
+        setCurrentConversationId(createId());
       }
     };
 

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { describeError, readApiError } from "@/lib/api-error";
+import { createId } from "@/lib/id";
 import { useChatStore } from "@/stores/chat";
 import { useGraphStore } from "@/stores/graph";
 import type { Conversation } from "@/types";
@@ -124,7 +125,7 @@ export default function Sidebar() {
       }
       setConversations(useChatStore.getState().conversations.filter((item) => item.id !== id));
       if (currentConversationId === id) {
-        setCurrentConversationId(crypto.randomUUID());
+        setCurrentConversationId(createId());
         setMessages([]);
       }
       toast.success("会话已删除");
