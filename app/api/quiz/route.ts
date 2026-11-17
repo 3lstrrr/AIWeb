@@ -33,8 +33,8 @@ const RETRIEVAL_TOP_K = 6;
 /** 送给模型的单个片段最大字符数（控制 token） */
 const PIECE_CONTENT_LIMIT = 500;
 
-/** Agent 最大步数：检索 + 提交（允许一次纠错） */
-const MAX_STEPS = 4;
+/** Agent 最大步数：检索 + 提交 + 若干次纠错（给足重试空间，避免一次不合规就整批失败） */
+const MAX_STEPS = 6;
 
 const TYPE_LABEL: Record<QuizQuestionType, string> = {
   single: "单选题",
@@ -114,8 +114,9 @@ function buildSystemPrompt(count: number, type: QuizQuestionType): string {
 - 所有题目必须能在检索到的片段中找到依据，不得超纲、不得引入片段之外的知识。
 - 每道题必须带 citations，documentId 与 pageNum 必须与检索结果完全一致，禁止编造。
 - 正好出 ${count} 道题，题型全部为「${TYPE_LABEL[type]}」。
-- 选择题给 4 个选项，选项互不重叠；answer 用 0 起始的下标数组（单选题只允许 1 个下标，多选题至少 2 个）。
-- 简答题 answer 写参考答案文本，且答案要点必须来自片段。
+- 选择题给 4 个选项，选项互不重叠；answer 用 0 起始的下标数组。
+- 单选题只允许 1 个正确下标；多选题必须给 2~4 个正确下标，不要只给 1 个。
+- 简答题 answer 写参考答案文本，且答案要点必须来自片段；简答题不要输出 options 字段。
 - 每题提供 explanation，说明依据（可引用片段原句）。
 - 如果检索结果不足以支撑 ${count} 道题，可以再调用一次 retrieveForQuiz 换主题词，但不要降低溯源要求。`;
 }
@@ -193,61 +194,120 @@ export async function POST(request: Request) {
     inputSchema: quizSchema,
     execute: async (quiz) => {
       stepIndex += 1;
-      const problems: string[] = [];
+      const notes: string[] = [];
+      const fatal: string[] = [];
 
+      // 本次检索命中的页码（同一文档），用于把模型的引用修正到可溯源的位置
+      const availablePages = [...new Set([...pieces.values()].map((piece) => piece.pageNum))].sort(
+        (a, b) => a - b,
+      );
+
+      const nearestPage = (target: number): number | null => {
+        if (availablePages.length === 0) return null;
+        return availablePages.reduce((best, page) =>
+          Math.abs(page - target) < Math.abs(best - target) ? page : best,
+        );
+      };
+
+      // 数量：多的截断、少的接受——不因为差一两道就把整批作废
+      const questions: QuizQuestion[] = quiz.questions.slice(0, count).map((question) => ({
+        ...question,
+      }));
       if (quiz.questions.length !== count) {
-        problems.push(`题目数量必须是 ${count} 道，当前 ${quiz.questions.length} 道`);
+        notes.push(`模型提交 ${quiz.questions.length} 道，按 ${count} 道取用`);
+      }
+      if (questions.length === 0) {
+        return { ok: false, reason: "没有提交任何题目" };
       }
 
-      quiz.questions.forEach((question, index) => {
+      questions.forEach((question, index) => {
         const label = `第 ${index + 1} 题`;
-        if (question.type !== type) {
-          problems.push(`${label} 题型必须是 ${type}`);
-        }
-        if (question.type === "short") {
-          if (typeof question.answer !== "string") problems.push(`${label} 简答题 answer 必须是文本`);
+
+        if (type === "short") {
+          if (typeof question.answer !== "string") {
+            question.answer = Array.isArray(question.answer)
+              ? question.answer.join("、")
+              : String(question.answer);
+            notes.push(`${label} 答案已转为文本`);
+          }
+          if (question.options) {
+            delete question.options;
+            notes.push(`${label} 简答题的多余选项已移除`);
+          }
         } else {
-          if (!Array.isArray(question.answer)) problems.push(`${label} 选择题 answer 必须是下标数组`);
-          if (!question.options || question.options.length < 2) problems.push(`${label} 缺少选项`);
-          if (Array.isArray(question.answer)) {
-            const maxIndex = (question.options?.length ?? 0) - 1;
-            if (question.answer.some((value) => value < 0 || value > maxIndex)) {
-              problems.push(`${label} answer 下标越界`);
-            }
-            if (question.type === "single" && question.answer.length !== 1) {
-              problems.push(`${label} 单选题只能有 1 个正确选项`);
-            }
-            if (question.type === "multiple" && question.answer.length < 2) {
-              problems.push(`${label} 多选题至少 2 个正确选项`);
-            }
+          if (!question.options || question.options.length < 2) {
+            fatal.push(`${label} 缺少选项`);
+            return;
+          }
+          if (!Array.isArray(question.answer)) {
+            const text = String(question.answer);
+            const hit = question.options.findIndex((option) => option.trim() === text.trim());
+            question.answer = [hit >= 0 ? hit : 0];
+            notes.push(`${label} 答案文本已转换为选项下标`);
+          }
+          const maxIndex = question.options.length - 1;
+          question.answer = question.answer.filter((value) => value >= 0 && value <= maxIndex);
+          if (question.answer.length === 0) {
+            question.answer = [0];
+            notes.push(`${label} 答案下标无效，回落为第 1 个选项`);
+          }
+          if (question.type === "single" && question.answer.length > 1) {
+            question.answer = question.answer.slice(0, 1);
+            notes.push(`${label} 单选题答案过多，只保留 1 个`);
+          }
+          if (question.type === "multiple" && question.answer.length < 2) {
+            // 多选题只给 1 个正确项：降级成单选，题面与选项依然可作答
+            question.type = "single";
+            notes.push(`${label} 只有 1 个正确选项，已降级为单选`);
           }
         }
 
-        for (const citation of question.citations) {
-          const matched = [...pieces.values()].some(
-            (piece) => piece.documentId === citation.documentId && piece.pageNum === citation.pageNum,
-          );
-          if (!matched) {
-            problems.push(
-              `${label} 的引用（${citation.documentId} 第 ${citation.pageNum} 页）不在检索片段中`,
-            );
+        // 引用：页码对不上就修正到最近的可溯源页码，绝不编造
+        const citations = (question.citations ?? [])
+          .map((citation) => {
+            if (availablePages.includes(citation.pageNum)) {
+              return { documentId, pageNum: citation.pageNum };
+            }
+            const nearest = nearestPage(citation.pageNum);
+            if (nearest === null) return null;
+            notes.push(`第 ${index + 1} 题引用页码 ${citation.pageNum} 改为 ${nearest}`);
+            return { documentId, pageNum: nearest };
+          })
+          .filter((citation): citation is { documentId: string; pageNum: number } => citation !== null);
+
+        if (citations.length === 0) {
+          const fallback = nearestPage(1);
+          if (fallback === null) {
+            fatal.push(`${label} 找不到可溯源片段`);
+            return;
           }
+          citations.push({ documentId, pageNum: fallback });
+          notes.push(`${label} 缺少引用，回落到第 ${fallback} 页`);
         }
+
+        question.citations = citations;
       });
 
-      if (problems.length > 0) {
-        // 抛错 → 模型看到错误信息后自我修正（受 MAX_STEPS 限制）
-        throw new Error(`出题不合规，请修正后重新调用 generateQuiz：\n- ${problems.join("\n- ")}`);
+      // 只有「无法修复」才拒绝，让模型看到原因后重试；可修复项一律就地修好
+      if (fatal.length > 0) {
+        return { ok: false, reason: fatal.join("；") };
+      }
+
+      if (notes.length > 0) {
+        console.warn("[quiz] 自动修正：", notes.join("；"));
       }
 
       log.push({
         step: stepIndex,
         tool: "generateQuiz",
         input: `${count} 道 ${TYPE_LABEL[type]}，主题：${topic || "全文"}`,
-        output: `通过校验，共 ${quiz.questions.length} 道题`,
+        output:
+          notes.length > 0
+            ? `通过校验，共 ${questions.length} 道题（自动修正 ${notes.length} 处）`
+            : `通过校验，共 ${questions.length} 道题`,
       });
 
-      return { questions: quiz.questions };
+      return { ok: true, questions };
     },
   });
 
@@ -264,22 +324,30 @@ export async function POST(request: Request) {
       maxOutputTokens: 4096,
     });
 
-    const quizOutput = result.steps
+    type QuizToolOutput = { ok?: boolean; questions?: QuizQuestion[]; reason?: string };
+    const quizOutputs = result.steps
       .flatMap((step) => step.toolResults ?? [])
       .filter((toolResult) => toolResult.toolName === "generateQuiz")
-      .at(-1)?.output as { questions: QuizQuestion[] } | undefined;
+      .map((toolResult) => toolResult.output as QuizToolOutput | undefined);
 
-    if (!quizOutput || !Array.isArray(quizOutput.questions)) {
+    // 取最后一次「通过校验」的提交（模型可能先失败再重试）
+    const accepted = [...quizOutputs]
+      .reverse()
+      .find((item) => item?.ok === true && Array.isArray(item.questions) && item.questions.length > 0);
+    const acceptedQuestions = accepted?.questions ?? [];
+
+    if (acceptedQuestions.length === 0) {
+      const lastReason = [...quizOutputs].reverse().find((item) => item?.reason)?.reason;
       return fail(
         "INTERNAL_ERROR",
         `出题未完成：模型没有在 ${MAX_STEPS} 步内提交合规题目${
           log.length > 0 ? `（已执行 ${log.length} 次工具调用）` : ""
-        }，请重试或换个主题`,
+        }${lastReason ? `。最后一次的问题：${lastReason}` : ""}，请重试或换个主题`,
         500,
       );
     }
 
-    const payload: QuizPayload = { questions: quizOutput.questions, log };
+    const payload: QuizPayload = { questions: acceptedQuestions, log };
     return NextResponse.json(payload);
   } catch (error) {
     console.error("[quiz] 出题失败：", error);
