@@ -11,11 +11,20 @@ import ChatInput from "@/components/chat/ChatInput";
 import MessageBubble from "@/components/chat/MessageBubble";
 import ModeSwitch from "@/components/chat/ModeSwitch";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
-import { describeError } from "@/lib/api-error";
+import { describeError, readApiError } from "@/lib/api-error";
 import { createId } from "@/lib/id";
 import { useChatStore } from "@/stores/chat";
 import { useDocsStore } from "@/stores/docs";
-import type { ChatMessage, Citation, DocumentSummary } from "@/types";
+import type { ChatMessage, Citation, DocumentSummary, MessageRole } from "@/types";
+
+/** /api/conversations/:id/messages 返回的原始消息 */
+interface StoredMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  citations: Citation[] | null;
+  created_at: string;
+}
 
 /** 取 UIMessage 中的纯文本（parts 里可能混有非文本片段） */
 function messageText(message: UIMessage): string {
@@ -96,12 +105,69 @@ export default function ChatWindow({
     [],
   );
 
-  const { messages, sendMessage, regenerate, status, error, stop, clearError } = useChat({
-      id: currentConversationId || undefined,
-      transport,
-    });
+  const {
+    messages,
+    sendMessage,
+    regenerate,
+    status,
+    error,
+    stop,
+    clearError,
+    setMessages: setChatMessages,
+  } = useChat({
+    id: currentConversationId || undefined,
+    transport,
+  });
 
   const isStreaming = status === "submitted" || status === "streaming";
+
+  // 历史回填：刷新页面或从侧栏切换会话后，把数据库里的消息与引用读回来
+  useEffect(() => {
+    if (!currentConversationId) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/conversations/${currentConversationId}/messages`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json();
+        if (cancelled) return;
+
+        if (!response.ok) {
+          toast.error(readApiError(payload, "历史消息加载失败"));
+          return;
+        }
+
+        const stored = (payload as { messages?: StoredMessage[] }).messages ?? [];
+        if (stored.length === 0) return;
+
+        setChatMessages(
+          stored.map((item) => ({
+            id: item.id,
+            role: item.role,
+            parts: [{ type: "text" as const, text: item.content }],
+            metadata: { citations: item.citations ?? [] },
+          })),
+        );
+        setStoreMessages(
+          stored.map((item) => ({ id: item.id, role: item.role, content: item.content })),
+        );
+      } catch (loadError) {
+        if (cancelled) return;
+        if (loadError instanceof Error && loadError.name === "AbortError") return;
+        toast.error(describeError(loadError));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [currentConversationId, setChatMessages, setStoreMessages]);
 
   // 初始化：恢复持久化的会话 id（没有就新建一个，后端在首次提问时自动落库）
   const initialized = useRef(false);

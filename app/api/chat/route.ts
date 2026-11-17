@@ -24,6 +24,9 @@ const CONTEXT_TOP_K = 4;
 /** 会话标题截断长度 */
 const TITLE_LENGTH = 30;
 
+/** 侧栏「新建对话」生成的占位标题：首次提问时应被问题替换 */
+const PLACEHOLDER_TITLES = ["新对话", "新会话", "未命名会话"];
+
 /** 引用卡片摘要截断长度 */
 const SNIPPET_LENGTH = 200;
 
@@ -217,6 +220,21 @@ export async function POST(request: Request) {
   );
   if (conversationError) {
     return fail("DB_INSERT_FAILED", `创建会话失败：${conversationError.message}`, 500);
+  }
+
+  // 侧栏「新建对话」建出的会话标题是占位符，首次提问时用问题替换掉，
+  // 否则侧栏一列全是「新对话」，历史回填后也分不清哪个是哪个。
+  const { data: currentConversation } = await supabase
+    .from("conversations")
+    .select("title")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (currentConversation && PLACEHOLDER_TITLES.includes((currentConversation.title ?? "").trim())) {
+    await supabase
+      .from("conversations")
+      .update({ title: question.slice(0, TITLE_LENGTH) })
+      .eq("id", conversationId);
   }
 
   // ── 4. 输入安全检测：命中注入 / 敏感词则不调模型，直接返回固定回复 ──
