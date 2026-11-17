@@ -17,6 +17,14 @@ pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 /** 逐级缩短的匹配键：pdf.js 的文本片段往往被切成半句话，长键更容易匹配失败 */
 const HIGHLIGHT_KEY_LENGTHS = [24, 16, 12, 8, 6];
 
+/** 页面四周留白（对应外层 p-3）与最大渲染宽度 */
+const CONTAINER_PADDING = 28;
+const MAX_PAGE_WIDTH = 860;
+const MIN_PAGE_WIDTH = 280;
+
+/** 宽度变化小于该阈值时不重排，避免滚动条出现/消失导致的来回抖动 */
+const WIDTH_HYSTERESIS = 8;
+
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => {
     switch (char) {
@@ -46,12 +54,15 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
-  const [width, setWidth] = useState(520);
+  /** 0 表示尚未测量，测量完成前不渲染页面，避免「先 520 再跳到实际宽度」的跳变 */
+  const [width, setWidth] = useState(0);
   /** 手动翻页后的页码；为 null 时跟随 props（点击引用时复位） */
   const [manualPage, setManualPage] = useState<number | null>(null);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
+  /** 已执行过自动滚动的目标标识，防止重复滚动 */
+  const scrolledKeyRef = useRef("");
 
   // 点击新的引用或切换文档时，回到 props 指定的页码
   useEffect(() => {
@@ -102,16 +113,27 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
     };
   }, [documentId]);
 
-  // 容器宽度自适应
+  // 宽度自适应：
+  // 只观察「不滚动的外层」，滚动发生在其子元素里，因此纵向滚动条的出现不会改变被观察元素的宽度，
+  // 从根上断开「渲染 → 出滚动条 → 宽度变小 → 重渲染」的循环。
   useEffect(() => {
-    const element = containerRef.current;
+    const element = measureRef.current;
     if (!element) return;
 
+    const apply = (raw: number) => {
+      const next = Math.floor(Math.min(Math.max(raw - CONTAINER_PADDING, MIN_PAGE_WIDTH), MAX_PAGE_WIDTH));
+      setWidth((previous) => (Math.abs(previous - next) >= WIDTH_HYSTERESIS ? next : previous));
+    };
+
     const observer = new ResizeObserver((entries) => {
-      const nextWidth = entries[0]?.contentRect.width ?? 0;
-      if (nextWidth > 0) setWidth(Math.floor(Math.min(nextWidth - 24, 860)));
+      const rect = entries[0]?.contentRect;
+      if (rect && rect.width > 0) apply(rect.width);
     });
     observer.observe(element);
+
+    // 首帧立即量一次，避免初始为空
+    apply(element.getBoundingClientRect().width);
+
     return () => observer.disconnect();
   }, []);
 
@@ -145,15 +167,25 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
     [highlightKeys],
   );
 
-  /** 文本层渲染完成后，把第一个高亮滚到视口中间 */
-  const handleTextLayerRendered = useCallback(() => {
-    const mark = pageRef.current?.querySelector("mark");
-    mark?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, []);
-
   const displayPage = manualPage ?? pageNumber;
   const canGoPrev = displayPage > 1;
   const canGoNext = numPages > 0 && displayPage < numPages;
+
+  /**
+   * 文本层渲染完成后滚动到高亮处。
+   * 同一个「文档 + 页码 + 片段」只滚一次：宽度变化会重复触发该回调，
+   * 若每次都滚，就会出现页面自己上下来回跳的现象。
+   */
+  const handleTextLayerRendered = useCallback(() => {
+    const key = `${documentId ?? ""}|${displayPage}|${snippet ?? ""}`;
+    if (scrolledKeyRef.current === key) return;
+    scrolledKeyRef.current = key;
+
+    const mark = pageRef.current?.querySelector("mark");
+    if (mark) {
+      mark.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [documentId, displayPage, snippet]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-neutral-100">
@@ -191,58 +223,61 @@ export default function PdfViewer({ documentId, pageNumber, snippet }: PdfViewer
         </div>
       </header>
 
-      <div ref={containerRef} className="flex-1 overflow-auto p-3">
-        {!documentId && (
-          <div className="flex h-full items-center justify-center px-6 text-center text-xs leading-relaxed text-neutral-400">
-            点击回答中的引用角标或来源卡片，
-            <br />
-            这里会跳到原文对应页并高亮片段。
-          </div>
-        )}
-
-        {documentId && error && (
-          <div className="mx-auto max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            原文加载失败：{error}
-          </div>
-        )}
-
-        {documentId && !error && !url && (
-          <div className="mx-auto w-full max-w-xl space-y-2 p-4" aria-busy="true">
-            <div className="h-4 w-24 animate-pulse rounded bg-neutral-200" />
-            <div className="h-[60vh] w-full animate-pulse rounded-lg bg-neutral-200/70" />
-          </div>
-        )}
-
-        {documentId && !error && url && (
-          <Document
-            file={url}
-            onLoadSuccess={({ numPages: total }) => setNumPages(total)}
-            onLoadError={(loadError) => setError(loadError.message)}
-            loading={
-              <div className="w-full max-w-xl p-4" aria-busy="true">
-                <div className="h-[70vh] w-full animate-pulse rounded-lg bg-neutral-200/70" />
-              </div>
-            }
-            error={<div className="p-6 text-center text-xs text-red-600">PDF 打开失败</div>}
-            className="flex flex-col items-center"
-          >
-            <div ref={pageRef} className="mb-3 shadow-sm">
-              <Page
-                pageNumber={Math.min(displayPage, numPages || displayPage)}
-                width={width}
-                customTextRenderer={renderTextItem}
-                onRenderTextLayerSuccess={handleTextLayerRendered}
-                renderAnnotationLayer={false}
-                loading={
-                  <div
-                    className="animate-pulse rounded bg-neutral-200/70"
-                    style={{ width, height: Math.round(width * 1.35) }}
-                  />
-                }
-              />
+      {/* 外层只负责测量，自身不滚动；滚动条出现在内层，不会反过来影响测量结果 */}
+      <div ref={measureRef} className="min-h-0 flex-1 p-3">
+        <div className="h-full overflow-y-auto overflow-x-hidden">
+          {!documentId && (
+            <div className="flex h-full items-center justify-center px-6 text-center text-xs leading-relaxed text-neutral-400">
+              点击回答中的引用角标或来源卡片，
+              <br />
+              这里会跳到原文对应页并高亮片段。
             </div>
-          </Document>
-        )}
+          )}
+
+          {documentId && error && (
+            <div className="mx-auto max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              原文加载失败：{error}
+            </div>
+          )}
+
+          {documentId && !error && (!url || width === 0) && (
+            <div className="mx-auto w-full max-w-xl space-y-2 p-4" aria-busy="true">
+              <div className="h-4 w-24 animate-pulse rounded bg-neutral-200" />
+              <div className="h-[60vh] w-full animate-pulse rounded-lg bg-neutral-200/70" />
+            </div>
+          )}
+
+          {documentId && !error && url && width > 0 && (
+            <Document
+              file={url}
+              onLoadSuccess={({ numPages: total }) => setNumPages(total)}
+              onLoadError={(loadError) => setError(loadError.message)}
+              loading={
+                <div className="w-full p-4" aria-busy="true">
+                  <div className="h-[70vh] w-full animate-pulse rounded-lg bg-neutral-200/70" />
+                </div>
+              }
+              error={<div className="p-6 text-center text-xs text-red-600">PDF 打开失败</div>}
+              className="flex flex-col items-center"
+            >
+              <div ref={pageRef} className="mb-3 shadow-sm">
+                <Page
+                  pageNumber={Math.min(displayPage, numPages || displayPage)}
+                  width={width}
+                  customTextRenderer={renderTextItem}
+                  onRenderTextLayerSuccess={handleTextLayerRendered}
+                  renderAnnotationLayer={false}
+                  loading={
+                    <div
+                      className="animate-pulse rounded bg-neutral-200/70"
+                      style={{ width, height: Math.round(width * 1.35) }}
+                    />
+                  }
+                />
+              </div>
+            </Document>
+          )}
+        </div>
       </div>
     </div>
   );
